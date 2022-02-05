@@ -1,0 +1,20 @@
+[package]
+name = "hecdss"
+version = "0.1.0"
+authors = ["Gyan Basyal <gyanbasyalz@gmail.com>"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+keywors = ["hecdss"]
+description = """
+Safe Rust API for HEC-DSS7 C library.
+"""
+categories = ["HEC-DSS","api-bindings"]
+edition = "2021"
+
+[dependencies]
+hecdss-sys = {version="0.1.0", path="hecdss-sys"}
+
+[build-dependencies]
+
+
+[features]
