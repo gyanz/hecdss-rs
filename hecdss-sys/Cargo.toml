@@ -3,6 +3,7 @@ name = "hecdss-sys"
 version = "0.1.0"
 authors = ["Gyan Basyal <gyanbasyalz@gmail.com>"]
 build = "build.rs"
+link = "heclib"
 license = "MIT/Apache-2.0"
 description = """
 Rust unsafe bindings for HEC-DSS7 C library funtions and structures.

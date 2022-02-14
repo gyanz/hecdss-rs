@@ -11,10 +11,18 @@ Safe Rust API for HEC-DSS7 C library.
 categories = ["HEC-DSS","api-bindings"]
 edition = "2021"
 
+[lib]
+crate-type = ["dylib"]
+
 [dependencies]
 hecdss-sys = {version="0.1.0", path="hecdss-sys"}
+thiserror = "1.0"
 
 [build-dependencies]
 
+
+[env]
+RUSTFLAGS = ["dead_code"]
+#
 
 [features]
