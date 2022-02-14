@@ -17,7 +17,7 @@ Command to build and run the included tests:
 cargo test -- --nocapture
 ```
 
-The build process involves linkage with HEC-DSS C and Fortran libraies. The included cmd_intel_environ.bat can be used in Windows 10 that has Microsoft Visual Studio and Intel OneApi.
+The build process involves linkage with HEC-DSS C and Fortran libraries. The included cmd_intel_environ.bat can be used in Windows 10 that has Microsoft Visual Studio and Intel OneApi.
 
 
 Contributing
