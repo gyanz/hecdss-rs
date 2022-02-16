@@ -1,5 +1,3 @@
-//use thiserror::Error;
-//use std::io::prelude::*;
 use std::io;
 use std::error;
 use std::error::Error;
@@ -26,6 +24,7 @@ pub enum DssErrorGroup {
     MEMORY,
     UNKNOWN,
 }
+
 #[derive(Debug,Clone)]
 pub enum DssErrorKind {
     STATUS_OK,
@@ -190,7 +189,6 @@ fn kind_from_code(code:i32) -> DssErrorKind {
 
 // Methods Implementations
 impl DssError {
-
     pub fn new() -> Self {
         let errobj_ptr= Box::new(hec_zdssLastError{errorCode: 0,
             severity: 0,
@@ -205,13 +203,10 @@ impl DssError {
             lastPathname: [0i8;394],
             filename: [0i8;256]
         });
-
         let egroup = DssErrorGroup::OK;
         let ekind = DssErrorKind::STATUS_OK;
         let emsg = String::from("No Error.");
-
-        DssError{group: egroup, kind: ekind, mesg: emsg, c_obj: errobj_ptr}
-        
+        DssError{group: egroup, kind: ekind, mesg: emsg, c_obj: errobj_ptr}  
     }
 
     pub fn update(mut self) -> Self {
@@ -227,13 +222,10 @@ impl DssError {
         let c_emsg= unsafe {std::mem::transmute::<[i8;500],[u8;500]>(errobj.errorMessage)};      
         let mut egroup = DssErrorGroup::OK;
         let mut ekind:DssErrorKind = kind_from_code(c_ecode); 
-
         if c_etype < 2 || c_etype > 4{
             // < 2 = NONE and WARNING
             egroup = DssErrorGroup::OK;
-
         } 
-        
         if c_etype > 1 && c_etype < 5 {
             let egroup:DssErrorGroup = match c_etype {
                     2 => DssErrorGroup::ACCESS,
@@ -241,14 +233,11 @@ impl DssError {
                     4 => DssErrorGroup::MEMORY,
                     _ => DssErrorGroup::UNKNOWN
                     };
-        
         }
-
         let emsg = match str::from_utf8(c_emsg.as_slice()) {
-            Ok(data) => data.to_owned().to_owned(),
+            Ok(data) => data.to_owned(),
             Err(e) => "Error coverting char to utf8".to_string()
         };
-
         self.group = egroup;
         self.kind = ekind;
         self.mesg = emsg;
@@ -261,7 +250,6 @@ impl DssError {
             DssErrorGroup::OK => Ok(()),
             _ => Err(self.clone())
         }
-
     }
 
     pub fn check() -> Result<(),Self> {
@@ -278,16 +266,12 @@ impl DssError {
             lastPathname: [0i8;394],
             filename: [0i8;256]
         }));
-        
         unsafe {zerror(errobj_ptr);}
         let errobj = unsafe {Box::from_raw(errobj_ptr)};
-
         let c_etype:i32 = errobj.errorType; 
         let c_ecode:i32 = errobj.errorCode;
         let c_emsg = unsafe {std::mem::transmute::<[i8;500],[u8;500]>(errobj.errorMessage)};
-
         let egroup = DssErrorGroup::UNKNOWN;
-
         // Find DssErrorGroup 
         if c_etype < 2 {
             return Ok(())
@@ -306,13 +290,11 @@ impl DssError {
 
         // Find DssErrorKind
         let ekind:DssErrorKind = kind_from_code(c_ecode); 
-        
         // Copy error message
         let msg = match str::from_utf8(c_emsg.as_slice()) {
-            Ok(data) => data.to_owned().to_owned(),
+            Ok(data) => data.to_owned(),
             Err(e) => "Error coverting char to utf8".to_string()
         };
-        
         // Return
         Err(DssError{group: egroup, kind: ekind, mesg: msg, c_obj: errobj})
     }
@@ -348,7 +330,6 @@ impl From<io::Error> for DssError {
         err.kind = DssErrorKind::UNDEFINED_ERROR;
         err.mesg = error.to_string();
         err
-
     }
 }
 
