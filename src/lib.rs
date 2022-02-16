@@ -7,7 +7,6 @@ use std::os::raw::*;
 pub mod error;
 use error::{DssResult,DssError};
 
-
 #[derive(Debug)]
 pub struct HecDss {
     ifltab: [i64;500],
