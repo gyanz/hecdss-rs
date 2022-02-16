@@ -4,8 +4,13 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
+    let os = env::var("CARGO_CFG_TARGET_OS");
     println!("cargo:rustc-link-lib=heclib");
-    println!("cargo:rustc-link-search=hecdss-sys/dss7/win64");
+    match os.as_ref().map(|x|&**x) {
+        Ok("linux") => println!("cargo:rustc-link-search=hecdss-sys/dss7/linux64"),
+        Ok("windows") => println!("cargo:rustc-link-search=hecdss-sys/dss7/win64"),
+        _ => panic!("Operating system not supported")
+    };
     println!("cargo:rerun-if-changed=dss7/headers/heclib.h");
     let bindings = bindgen::Builder::default()
         .header("dss7/headers/heclib.h")
