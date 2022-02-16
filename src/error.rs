@@ -245,7 +245,7 @@ impl DssError {
         }
 
         let emsg = match str::from_utf8(c_emsg.as_slice()) {
-            Ok(data) => data.to_owned().to_owned(),
+            Ok(data) => data.to_owned(),
             Err(e) => "Error coverting char to utf8".to_string()
         };
 
@@ -309,7 +309,7 @@ impl DssError {
         
         // Copy error message
         let msg = match str::from_utf8(c_emsg.as_slice()) {
-            Ok(data) => data.to_owned().to_owned(),
+            Ok(data) => data.to_owned(),
             Err(e) => "Error coverting char to utf8".to_string()
         };
         
