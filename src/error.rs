@@ -209,6 +209,16 @@ impl DssError {
         DssError{group: egroup, kind: ekind, mesg: emsg, c_obj: errobj_ptr}  
     }
 
+    pub fn raise(mesg:String) -> Self {
+        let egroup = DssErrorGroup::UNKNOWN;
+        let ekind = DssErrorKind::UNDEFINED_ERROR;
+        let mut err = DssError::new();
+        err.group = egroup;
+        err.kind = ekind;
+        err.mesg = mesg;//mesg.to_owned();
+        err
+    }
+
     pub fn update(mut self) -> Self {
         // zerrorclear?
         let errobj_ptr = Box::into_raw(self.c_obj);
