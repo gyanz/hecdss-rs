@@ -392,9 +392,6 @@ impl <'a> TimeSeriesContainer<'a> {
         match length {
             capacity => {
                 self.values.clone_from_slice(values);
-                //for v in values {
-                //    self.values.push(*v);
-                //}
                 Ok(())
             },
             _ => Err(DssError::raise("The length of the value is not equal to TimeSeriesContainer capacity".to_string()))?
@@ -445,8 +442,6 @@ impl <'a> TimeSeriesContainer<'a> {
                 } else {
                     times.push(start_time);
                 }
-                //let a = times;
-                //return Some(&(*times)[..])
                 return Some(times)
             }
             
@@ -595,11 +590,9 @@ impl HecDss {
             }
 
             // set time values
-            //let interval = (*zts).timeIntervalSeconds;
             let granularity = HecTimeGranularity::from_value((*zts).timeGranularitySeconds);
             let mut basedate = 0 as c_int;
             let mut times = Vec::<HecTime>::with_capacity(data_count as usize);
-            //if interval <= 0 {
             match ts_type {
                 TimeSeriesType::irregular => {
                     basedate = (*zts).julianBaseDate;
@@ -620,7 +613,25 @@ impl HecDss {
                     tsc.set_times(times.as_slice());
                 }
             }
+            zstructFree(zts as *mut c_void);
             Ok(tsc)
+        }
+    }
+
+    pub fn read_pd(&mut self) {
+
+    }
+
+    pub fn read_grid(&mut self) {
+
+    }
+}
+
+impl Drop for HecDss {
+    fn drop(&mut self) {
+        println!("Freeing the HecDss resource for linked with file: {}",self.filename);
+        unsafe {
+            zclose(self.ifltab.as_mut_slice().as_mut_ptr());
         }
     }
 }
