@@ -19,6 +19,12 @@ cargo test -- --nocapture
 
 The build process involves linkage with HEC-DSS C and Fortran libraries. The included cmd_intel_environ.bat can be used in Windows 10 that has Microsoft Visual Studio and Intel OneApi.
 
+The **threadsafe** feature is on by default. This feature prevents running HEC-DSS7 C functions in parallel using mutex (i.e., mutual exclusion) synchronization lock. For single threaded application this, however, adds CPU overhead. The **threadsafe** feature can be turn off using following commands:
+```
+cargo build --no-default-features
+cargo test --no-default-features -- --nocapture
+```
+
 
 Contributing
 ===
