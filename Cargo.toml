@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Gyan Basyal <gyanbasyalz@gmail.com>"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
-keywors = ["hecdss"]
+keywords = ["hecdss"]
 description = """
 Safe Rust API for HEC-DSS7 C library.
 """
@@ -15,14 +15,13 @@ edition = "2021"
 crate-type = ["dylib"]
 
 [dependencies]
-hecdss-sys = {version="0.1.0", path="hecdss-sys"}
-thiserror = "1.0"
+hecdss-sys = {version="0.1.0",path="hecdss-sys"}
+nonparallel = {git ="https://github.com/dbrgn/nonparallel",default-features=false,optional=true}
+lazy_static = "1"
 
-[build-dependencies]
-
+[features]
+default = ["threadsafe"]
+threadsafe = ["nonparallel"]
 
 [env]
 RUSTFLAGS = ["dead_code"]
-#
-
-[features]

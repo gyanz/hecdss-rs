@@ -8,6 +8,17 @@ use std::os::raw::*;
 pub mod error;
 use error::{DssResult,DssError};
 
+#[cfg(feature = "threadsafe")]
+use std::sync::Mutex;
+#[cfg(feature = "threadsafe")]
+use nonparallel::nonparallel;
+#[cfg(feature = "threadsafe")]
+use lazy_static::lazy_static;
+#[cfg(feature = "threadsafe")]
+lazy_static! { static ref MUTX: Mutex<()> = Mutex::new(()); }
+
+
+
 #[derive(Debug)]
 pub struct HecDss {
     ifltab: [i64;500],
@@ -101,6 +112,38 @@ pub struct TimeSeriesContainer<'a> {
     // for regular series only
     start_time:Option<HecTime>,
     interval:Option<HecTimeInterval>
+}
+
+pub struct TimeSeriesOptions {
+    slice:Option<TimeSeriesSlice>,
+    trim_start:Option<bool>,
+    trim_end:Option<bool>
+}
+pub struct TimeSeriesSlice {
+    start_time:Option<HecTime>,
+    end_time:Option<HecTime>,
+    trim:bool
+}
+
+pub struct PairedDataTable<'a> {
+    pathname:Option<DssPathname>,
+    shape:(c_int,c_int),
+    headers:Option<Vec<&'a str>>,
+    index:Vec<f32>,
+    columns:Vec<Vec<f32>>,
+    // meta data
+    //data_unit:DataUnit<'a>,
+    //data_type:DataType<'a>,
+}
+
+pub struct PairedDataOptions {
+    slice:Option<PairedDataSlice>,
+}
+pub struct PairedDataSlice {
+    row_start:c_int,
+    row_end:Option<c_int>,
+    col_start:c_int,
+    col_end:Option<c_int>
 }
 
 impl HecTimeGranularity {
@@ -520,7 +563,86 @@ impl DssPathname {
     }
 }
 
+impl PairedDataSlice {
+    pub fn new() -> Self {
+        let row_start = 0;
+        let col_start = 0;
+        let row_end = None;
+        let col_end = None;
+        PairedDataSlice{row_start:row_start,row_end:row_end,col_start:col_start,col_end:col_end}
+    }
+
+    pub fn set_row_range(&mut self,start:c_int,end:c_int) {
+        self.row_start = start;
+        self.row_end = Some(end);
+    }
+
+    pub fn set_col_range(&mut self,start:c_int,end:c_int) {
+        self.col_start = start;
+        self.col_end = Some(end);
+    }
+}
+
+impl PairedDataOptions {
+    pub fn new() -> Self {
+        PairedDataOptions{slice:Some(PairedDataSlice::new())}
+    }
+}
+
+impl <'a> PairedDataTable<'a> {
+    pub fn new(row_count:c_int,col_count:c_int) -> Self {
+        let mut pathname:Option<DssPathname>= None;
+        let mut columns = vec![vec![0f32;row_count as usize];col_count as usize];
+        //let columns = vec![0f32,(row_count as usize),(col_count as usize)];
+        let mut index = vec![0f32;row_count as usize];
+        //let mut unit = DataUnit::undefined("");
+        //let mut dtype = DataType::undefined("");
+
+        PairedDataTable{pathname:pathname,
+                        shape:(row_count,col_count),
+                        headers:None,
+                        index:index,
+                        columns:columns}
+    }
+
+    pub fn set_pathname(&mut self, path:DssPathname) {
+        self.pathname = Some(path);
+    }
+
+    pub fn set_index(&mut self, values:&[f32]) -> DssResult<()> {
+        let (rows,cols) = self.shape;
+        let length = (rows*cols) as usize;
+        match values.len() {
+            length => {
+                self.index.clone_from_slice(values);
+                Ok(())
+            },
+            _ => {Err(DssError::raise("The length of the value is not equal to PairedDataTable index capacity".to_string()))?}
+        }
+    }
+
+    pub fn set_columns(&mut self, values:&[f32]) -> DssResult<()> {
+        let (rows,cols) = self.shape;
+        let length = (rows*cols) as usize;
+        match values.len() {
+            length => {
+                let mut count = 0;
+                for col in 0..(cols as usize) {
+                    for row in 0..(rows as usize) {
+                        self.columns[col][row] = values[count];
+                        count += 1;
+                    }
+                }
+                Ok(())
+            },
+            _ => Err(DssError::raise("The length of the value is not equal to PairedDataTable column capacity".to_string()))?
+        }
+    }
+
+}
+
 impl HecDss {
+    #[cfg_attr(feature="threadsafe",nonparallel(MUTX))]
     pub fn new(dss_file:String) -> Result<Self,Box<dyn Error>> {//DssResult<Self> {
         let mut ifltab = [0i64;500];
         let path = CString::new(dss_file.clone())?;
@@ -536,6 +658,7 @@ impl HecDss {
         }
     }
 
+    #[cfg_attr(feature="threadsafe",nonparallel(MUTX))]
     pub fn read_ts(&mut self,dss_path:&str,retflag:Option<c_int>,dtype:Option<c_int>,alltime:Option<bool>) -> DssResult<TimeSeriesContainer> {
         unsafe {
             let path = CString::new(dss_path).expect("error");
@@ -617,17 +740,43 @@ impl HecDss {
             Ok(tsc)
         }
     }
+    /** 
+    #[cfg_attr(feature="threadsafe",nonparallel(MUTX))]
+    pub fn read_pd(&mut self,dss_path:&str,options:Option<PairedDataOptions>) -> DssResult<PairedDataTable>{
+        let dsspath = DssPathname::from_string(dss_path);
+        match dsspath {
+            Some(x) => {},
+            None => Err(DssError::raise(format!("Invalid dsspathname {} provided",dss_path)))?
+        }
+        let path = CString::new(dss_path).expect("Error with dsspath conversion");
+        let zpd = unsafe {
+            zstructPdNew(path.as_ptr())
+        };
 
-    pub fn read_pd(&mut self) {
+        if zpd.is_null() {
+            Err(DssError::raise(format!("Error occured with allocation of underlying paired data object")))?;
+        }
 
+        unsafe {
+            match options {
+                Some(opt) => {},
+                None => {}
+            }
+        }
+
+
+        Ok(())
     }
+    **/
 
+    #[cfg_attr(feature="threadsafe",nonparallel(MUTX))]
     pub fn read_grid(&mut self) {
 
     }
 }
 
 impl Drop for HecDss {
+    #[cfg_attr(feature="threadsafe",nonparallel(MUTX))]
     fn drop(&mut self) {
         println!("Freeing the HecDss resource for linked with file: {}",self.filename);
         unsafe {
@@ -639,6 +788,8 @@ impl Drop for HecDss {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex,Arc};
+    use std::{thread,time};
 
     #[test]
     fn datetime_to_hectime() {
@@ -686,4 +837,42 @@ mod tests {
                 panic!("DssError encountered while reading regular time-series data")}
         }
     }
+
+    #[test]
+    fn read_regular_timeseries_mthread() {
+        println!("==========================================");
+        println!("Running functions from multiple threads");
+        println!("==========================================");
+        let file_path = "data/example.dss";
+        let dss_path = "/REGULAR/TIMESERIES/FLOW//1Hour/Ex1";
+        let dss_patha = "/REGULAR/TIMESERIES/FLOW//1Hour/Ex1a";
+        let mut handles = vec![];
+
+        
+        let handle1 = thread::spawn(move || {
+            println!("**Starting thread 1");
+            let mut fid = HecDss::new(file_path.to_string()).expect("Failed to open HEC-DSS file!");
+            let data = fid.read_ts(dss_path,None,None,None);
+            thread::sleep(time::Duration::from_millis(10));
+            println!("**Thread 1 TSC = {:?}",data);
+            println!("**End of thread 1");
+        });
+
+        let handle2 = thread::spawn(move || {
+            println!("^^Starting thread 2");
+            let mut fid = HecDss::new(file_path.to_string()).expect("Failed to open HEC-DSS file!");
+            let data = fid.read_ts(dss_patha,None,None,None);
+            println!("^^Thread 2 TSC = {:?}",data);
+            println!("^^End of thread 2");
+        });
+
+        handles.push(handle1);
+        handles.push(handle2);
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+    }
+
 }

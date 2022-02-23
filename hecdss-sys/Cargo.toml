@@ -11,14 +11,8 @@ Rust unsafe bindings for HEC-DSS7 C library funtions and structures.
 categories = ["ffi-bindings"]
 edition = "2021"
 
-
 [lib]
 path= "src/lib.rs"
 
-[dependencies]
-
-
 [build-dependencies]
 bindgen = "0.59.2"
-
-[features]
