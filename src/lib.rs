@@ -1,9 +1,8 @@
 use hecdss_sys::*;
 use std::io::prelude::*;
-//use std::marker::Copy;
+use std::{self,mem,str};
 use std::ffi::{CStr,CString};
 use std::error::Error;
-use std::{mem,str};
 use std::os::raw::*;
 pub mod error;
 use error::{DssResult,DssError};
@@ -16,8 +15,6 @@ use nonparallel::nonparallel;
 use lazy_static::lazy_static;
 #[cfg(feature = "threadsafe")]
 lazy_static! { static ref MUTX: Mutex<()> = Mutex::new(()); }
-
-
 
 #[derive(Debug)]
 pub struct HecDss {
@@ -114,17 +111,21 @@ pub struct TimeSeriesContainer<'a> {
     interval:Option<HecTimeInterval>
 }
 
+#[derive(Debug)]
 pub struct TimeSeriesOptions {
     slice:Option<TimeSeriesSlice>,
     trim_start:Option<bool>,
     trim_end:Option<bool>
 }
+
+#[derive(Debug)]
 pub struct TimeSeriesSlice {
     start_time:Option<HecTime>,
     end_time:Option<HecTime>,
     trim:bool
 }
 
+#[derive(Debug)]
 pub struct PairedDataTable<'a> {
     pathname:Option<DssPathname>,
     shape:(c_int,c_int),
@@ -134,16 +135,26 @@ pub struct PairedDataTable<'a> {
     // meta data
     //data_unit:DataUnit<'a>,
     //data_type:DataType<'a>,
+    index_unit:DataUnit<'a>,
+    index_type:DataType<'a>,
+    column_unit:DataUnit<'a>,
+    column_type:DataType<'a>
 }
 
+#[derive(Debug)]
 pub struct PairedDataOptions {
-    slice:Option<PairedDataSlice>,
+    slice:PairedDataSlice,
 }
+#[derive(Debug)]
 pub struct PairedDataSlice {
     row_start:c_int,
     row_end:Option<c_int>,
     col_start:c_int,
     col_end:Option<c_int>
+}
+
+#[derive(Debug)]
+pub struct DssMetaData {
 }
 
 impl HecTimeGranularity {
@@ -555,9 +566,10 @@ impl DssPathname {
         if !path.starts_with("/") {return None}
         if !path.ends_with("/") {return None}
         let parts = path.split("/").map(|x| Some(x.trim().to_string())).collect::<Vec<Option<_>>>();
+        //println!("{:?}",&parts);
         match parts.len() {
-            6 => Some(DssPathname::new(parts[0].clone(),parts[1].clone(),parts[2].clone(),
-                                       parts[3].clone(),parts[4].clone(),parts[5].clone())),
+            8 => Some(DssPathname::new(parts[1].clone(),parts[2].clone(),parts[3].clone(),
+                                       parts[4].clone(),parts[5].clone(),parts[6].clone())),
             _ => None
         }
     }
@@ -585,7 +597,7 @@ impl PairedDataSlice {
 
 impl PairedDataOptions {
     pub fn new() -> Self {
-        PairedDataOptions{slice:Some(PairedDataSlice::new())}
+        PairedDataOptions{slice:PairedDataSlice::new()}
     }
 }
 
@@ -602,7 +614,12 @@ impl <'a> PairedDataTable<'a> {
                         shape:(row_count,col_count),
                         headers:None,
                         index:index,
-                        columns:columns}
+                        columns:columns,
+                        index_unit:DataUnit::undefined(""),
+                        index_type:DataType::undefined(""),
+                        column_unit:DataUnit::undefined(""),
+                        column_type:DataType::undefined("")
+                    }
     }
 
     pub fn set_pathname(&mut self, path:DssPathname) {
@@ -637,6 +654,57 @@ impl <'a> PairedDataTable<'a> {
             },
             _ => Err(DssError::raise("The length of the value is not equal to PairedDataTable column capacity".to_string()))?
         }
+    }
+
+    pub fn set_headers(&mut self,headers:Option<Vec<&'a str>>) -> DssResult<()>{
+        match headers {
+            Some(ref x) => {
+                if (*x).len() != (self.shape.1 as usize) {
+                    println!("PD Headers = {:?}",headers);
+                    Err(DssError::raise(format!("Invalid number ({}) of column header provided",x.len())))?
+                };
+            },
+            _ => {}
+        }
+        self.headers = headers;
+        Ok(())
+    }
+
+    pub fn set_index_unit(&mut self,unit:&'a str){
+        let unit = DataUnit::from_string(unit);
+        self.index_unit = unit;
+    }
+
+    pub fn index_unit(&self) -> DataUnit {
+        self.index_unit
+    }
+
+    pub fn set_index_type(&mut self,typ:&'a str) {
+        let typ = DataType::from_string(typ);
+        self.index_type = typ;  
+    }
+
+    pub fn index_type(&self) -> DataType {
+        self.index_type
+    }
+
+    pub fn set_column_unit(&mut self,unit:&'a str) {
+        let unit = DataUnit::from_string(unit);
+        self.column_unit = unit;
+
+    }
+
+    pub fn column_unit(&self) -> DataUnit {
+        self.index_unit
+    }
+
+    pub fn set_column_type(&mut self,typ:&'a str) {
+        let typ = DataType::from_string(typ);
+        self.index_type = typ;
+    }
+
+    pub fn column_type(&self) -> DataType {
+        self.index_type
     }
 
 }
@@ -740,34 +808,89 @@ impl HecDss {
             Ok(tsc)
         }
     }
-    /** 
+    
     #[cfg_attr(feature="threadsafe",nonparallel(MUTX))]
     pub fn read_pd(&mut self,dss_path:&str,options:Option<PairedDataOptions>) -> DssResult<PairedDataTable>{
         let dsspath = DssPathname::from_string(dss_path);
         match dsspath {
-            Some(x) => {},
+            Some(ref x) => {},
             None => Err(DssError::raise(format!("Invalid dsspathname {} provided",dss_path)))?
         }
         let path = CString::new(dss_path).expect("Error with dsspath conversion");
         let zpd = unsafe {
             zstructPdNew(path.as_ptr())
         };
-
         if zpd.is_null() {
             Err(DssError::raise(format!("Error occured with allocation of underlying paired data object")))?;
         }
-
+        let mut rows = 0;
+        let mut cols = 0;
         unsafe {
             match options {
-                Some(opt) => {},
+                Some(opt) => {
+                    let zrs = zstructRecordSizeNew(path.as_ptr());
+                    if zrs.is_null() {
+                        Err(DssError::raise(format!("Error occured while determining meta data of pd record: {}",dss_path)))?;
+                    }
+                    let pd_rows = (*zrs).pdNumberOrdinates;
+                    let pd_cols = (*zrs).pdNumberCurves;
+                    let row_start = opt.slice.row_start;
+                    let col_start = opt.slice.col_start;
+                    let row_end = opt.slice.row_end.unwrap_or(pd_rows);
+                    let col_end = opt.slice.col_end.unwrap_or(pd_cols);
+                    if row_start > pd_rows || row_start <1 {
+                        Err(DssError::raise(format!("Paired Data row start index {} not in the range 1 - {}",row_start,pd_rows)))?;
+                    }
+                    if row_end > pd_rows || row_end <1 {
+                        Err(DssError::raise(format!("Paired Data row end index {} not in the range 1 - {}",row_end,pd_rows)))?;
+                    }
+                    if col_start > pd_cols || col_start < 1  {
+                        Err(DssError::raise(format!("Paired Data column start index {} not in the range 1 - {}",col_start,pd_cols)))?;
+                    }
+                    if col_end > pd_cols || col_end < 1  {
+                        Err(DssError::raise(format!("Paired Data column end index {} not in the range 1 - {}",col_end,pd_cols)))?;
+                    }
+                    (*zpd).startingOrdinate = row_start;
+                    (*zpd).endingOrdinate = row_end;
+                    (*zpd).startingCurve = col_start;
+                    (*zpd).endingCurve = col_start;
+                },
                 None => {}
             }
+            let status = zpdRetrieve(self.ifltab.as_mut_ptr(),zpd,1);
+            rows = (*zpd).numberOrdinates;
+            cols = (*zpd).numberCurves;
         }
-
-
-        Ok(())
+        if rows < 1 || cols < 1 {
+            Err(DssError::raise(format!("Paired Data has invalid number of rows {} or columns {}",rows,cols)))?;
+        }
+        let mut ptable = PairedDataTable::new(rows,cols);
+        ptable.set_pathname(dsspath.unwrap());
+        unsafe {
+            let buf_ptr:*const f32 = (*zpd).floatOrdinates;
+            ptable.set_index(std::slice::from_raw_parts(buf_ptr, rows as usize));
+            let buf_ptr = (*zpd).floatValues;
+            ptable.set_columns(std::slice::from_raw_parts(buf_ptr, (rows as usize)*(cols as usize)));
+            let label_len:i32 = (*zpd).labelsLength;
+            let clabels = std::slice::from_raw_parts((*zpd).labels, label_len as usize);
+            let labels = mem::transmute::<&[i8],&[u8]>(clabels);
+            let headers = str::from_utf8(labels).unwrap();
+            let mut headers:Vec<&str> = headers.trim_end_matches("\x00").split("\x00").collect();
+            if headers.len() != (cols as usize) {
+                let mut headers_fixed:Vec<&str> = Vec::new();
+                let count = std::cmp::min(headers.len(),cols as usize);
+                for i in 0..count {
+                    headers_fixed.push(headers[i]);
+                }
+                ptable.set_headers(Some(headers_fixed))?;
+            } else {
+                ptable.set_headers(Some(headers))?;
+            }
+            zstructFree(zpd as *mut c_void);
+        }
+        Ok(ptable)
     }
-    **/
+    
 
     #[cfg_attr(feature="threadsafe",nonparallel(MUTX))]
     pub fn read_grid(&mut self) {
@@ -788,7 +911,7 @@ impl Drop for HecDss {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex,Arc};
+    //use std::sync::{Mutex,Arc};
     use std::{thread,time};
 
     #[test]
@@ -848,7 +971,6 @@ mod tests {
         let dss_patha = "/REGULAR/TIMESERIES/FLOW//1Hour/Ex1a";
         let mut handles = vec![];
 
-        
         let handle1 = thread::spawn(move || {
             println!("**Starting thread 1");
             let mut fid = HecDss::new(file_path.to_string()).expect("Failed to open HEC-DSS file!");
@@ -872,7 +994,16 @@ mod tests {
         for handle in handles {
             handle.join().unwrap();
         }
+    }
 
+    #[test]
+    fn read_paired_data() {
+        let file_path = String::from("data/example.dss");
+        let dss_path = String::from("/PAIREDDATA/PTABLE/FREQ-FLOW///Ex2/");
+        let mut fid = HecDss::new(file_path).expect("Failed to open HEC-DSS file!");
+        let options = None;
+        let data = fid.read_pd(&dss_path,options);
+        println!("Paired data table = {:?}",data);
     }
 
 }
