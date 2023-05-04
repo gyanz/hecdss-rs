@@ -5,7 +5,7 @@ This library contains bindings to [HEC-DSS](http://www.hec.usace.army.mil/softwa
 Usage
 ===
 
-Install the [rustup](https://www.rust-lang.org/tools/install) toolchain.
+Install the [rustup](https://www.rust-lang.org/tools/install) toolchain, [LLVM](https://github.com/llvm/llvm-project/releases/tag/llvmorg-13.0.1).
 
 Command to build the library from source:
 ```
