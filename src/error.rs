@@ -201,7 +201,7 @@ impl DssError {
             errorMessage: [0i8;500],
             systemErrorMessage: [0i8;500],
             lastPathname: [0i8;394],
-            filename: [0i8;256]
+            filename: [0i8;1024]
         });
         let egroup = DssErrorGroup::OK;
         let ekind = DssErrorKind::STATUS_OK;
@@ -274,7 +274,7 @@ impl DssError {
             errorMessage: [0i8;500],
             systemErrorMessage: [0i8;500],
             lastPathname: [0i8;394],
-            filename: [0i8;256]
+            filename: [0i8;1024]
         }));
         unsafe {zerror(errobj_ptr);}
         let errobj = unsafe {Box::from_raw(errobj_ptr)};

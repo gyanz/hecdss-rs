@@ -102,7 +102,7 @@ pub enum TimeSeriesType {
     irregular
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct TimeSeriesContainer<'a> {
     // all
     ts_type:TimeSeriesType,
@@ -162,6 +162,12 @@ pub struct PairedDataSlice {
 
 #[derive(Debug)]
 pub struct DssMetaData {
+}
+
+pub fn config_dss_logging(group:c_int,level:c_int) {
+    unsafe {
+        zsetMessageLevel(group,level);
+    }
 }
 
 impl HecTimeGranularity {
@@ -805,7 +811,7 @@ impl HecDss {
         let path = CString::new(dss_file.clone())?;
         let mut err = DssError::new();
         unsafe {
-            zopen(ifltab.as_mut_slice().as_mut_ptr(),path.as_ptr());
+            hec_dss_zopen(ifltab.as_mut_slice().as_mut_ptr(),path.as_ptr());
             err = err.update();
             err.is_ok()?;
             let version = zgetVersion(ifltab.as_mut_slice().as_mut_ptr());
@@ -813,6 +819,20 @@ impl HecDss {
                       filename: dss_file,
                       version: version})
         }
+    }
+
+    #[cfg_attr(feature="threadsafe",nonparallel(MUTX))]
+    pub fn copy(&mut self,dss_path_in:DssPathname,dss_path_out:DssPathname) -> DssResult<()> {
+        let mut err = DssError::new();
+        let from = CString::new(dss_path_in.to_string()).expect("error with input dss pathname");
+        let to = CString::new(dss_path_out.to_string()).expect("error with output dss pathname");
+        unsafe {
+            let ifltab = self.ifltab.as_mut_slice().as_mut_ptr();
+            let status = zcopyRecord(ifltab, ifltab, from.as_ptr(), to.as_ptr());
+            err = err.update();
+            err.is_ok()?;
+        }
+        Ok(())
     }
 
     #[cfg_attr(feature="threadsafe",nonparallel(MUTX))]
@@ -1067,21 +1087,21 @@ mod tests {
     //use std::sync::{Mutex,Arc};
     use std::{thread,time};
 
-    //#[test]
+    #[test]
     fn datetime_to_hectime() {
         let datetime = "01JAN2020:1200";
         let hectime = HecTime::from_string(datetime,None,None);
         println!("String to Hectime = {:?}",hectime);
     }
 
-    //#[test]
+    #[test]
     fn hectime_datetime() {
         let hectime = HecTime::new(43200,Some(HecTimeGranularity::second),Some(HecBaseDate::default));
         let datetime = hectime.to_string();
         println!("Hectime to string = {:?}",datetime);
     }
 
-    //#[test]
+    #[test]
     fn read_regular_timeseries() {
         let file_path = String::from("data/example.dss");
         let dss_path = String::from("/REGULAR/TIMESERIES/FLOW//1Hour/Ex1a/");
@@ -1116,6 +1136,7 @@ mod tests {
     }
 
     
+    #[test]
     fn read_regular_timeseries_mthread() {
         println!("==========================================");
         println!("Running functions from multiple threads");
@@ -1172,7 +1193,7 @@ mod tests {
         };
     }
 
-    //#[test]
+    #[test]
     fn read_paired_data() {
         let file_path = String::from("data/example.dss");
         let dss_path = String::from("/PAIREDDATA/PTABLE/FREQ-FLOW///Ex2/");

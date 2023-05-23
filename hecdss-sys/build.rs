@@ -7,8 +7,10 @@ fn main() {
     let os = env::var("CARGO_CFG_TARGET_OS");
     println!("cargo:rustc-link-lib=heclib");
     match os.as_ref().map(|x|&**x) {
-        Ok("linux") => println!("cargo:rustc-link-search=hecdss-sys/dss7/linux64"),
-        Ok("windows") => println!("cargo:rustc-link-search=hecdss-sys/dss7/win64"),
+        //Ok("linux") => println!("cargo:rustc-link-search=hecdss-sys/dss7/linux64"),
+        Ok("linux") => println!("cargo:rustc-link-search={}/dss7/linux64",std::env::current_dir().unwrap().display()),
+        //Ok("windows") => println!("cargo:rustc-link-search=hecdss-sys/dss7/win64"),
+        Ok("windows") => println!("cargo:rustc-link-search={}/dss7/win64",std::env::current_dir().unwrap().display()),
         _ => panic!("Operating system not supported")
     };
     println!("cargo:rerun-if-changed=dss7/headers/heclib.h");

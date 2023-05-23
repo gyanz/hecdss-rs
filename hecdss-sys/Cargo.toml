@@ -1,9 +1,9 @@
 [package]
 name = "hecdss-sys"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Gyan Basyal <gyanbasyalz@gmail.com>"]
 build = "build.rs"
-link = "heclib"
+links = "heclib"
 license = "MIT/Apache-2.0"
 description = """
 Rust unsafe bindings for HEC-DSS7 C library funtions and structures.
@@ -15,4 +15,4 @@ edition = "2021"
 path= "src/lib.rs"
 
 [build-dependencies]
-bindgen = "0.59.2"
+bindgen = "0.60.1"

@@ -1,6 +1,6 @@
 [package]
 name = "hecdss"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Gyan Basyal <gyanbasyalz@gmail.com>"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
@@ -12,10 +12,10 @@ categories = ["HEC-DSS","api-bindings"]
 edition = "2021"
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["rlib"]
 
 [dependencies]
-hecdss-sys = {version="0.1.0",path="hecdss-sys"}
+hecdss-sys = {version="0.2.0",path="hecdss-sys"}
 nonparallel = {git ="https://github.com/dbrgn/nonparallel",default-features=false,optional=true}
 regex = "1"
 lazy_static = {version = "1.4.0",optional=true}
