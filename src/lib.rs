@@ -371,7 +371,8 @@ impl HecTime {
             _ => 4,
         };
         let status = unsafe {
-            julianToDate(days, date_fmt, cdate_ptr, mem::size_of::<[c_char;13]>() as size_t)
+            //julianToDate(days, date_fmt, cdate_ptr, mem::size_of::<[c_char;13]>() as size_t)
+            julianToDate(days, date_fmt, cdate_ptr, mem::size_of::<[c_char;13]>() as usize)
         };
         match status {
             0 => unsafe {
